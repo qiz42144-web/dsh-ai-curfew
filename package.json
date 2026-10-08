@@ -23,11 +23,17 @@
   "files": [
     "index.js",
     "client.js",
+    "config.js",
+    "clock.js",
+    "duty.js",
     "cordis.patch.yml",
     "icon.svg",
     "locale/*.json",
     "README.md"
   ],
+  "scripts": {
+    "test": "node --test"
+  },
   "engines": {
     "node": ">=22"
   },
