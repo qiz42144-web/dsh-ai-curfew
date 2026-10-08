@@ -72,6 +72,31 @@ export function syntheticStream(text) {
 }
 
 /**
+ * Does this agent object look like a delegated subagent?
+ *
+ * The scoped hooks only ever see a session id, so the classification has to
+ * happen where the whole agent is in hand — `agent/request` runs earlier in the
+ * same step and carries it. The shape inspected here is not part of the
+ * documented contract, so every access is guarded: a miss simply means "treat it
+ * as a root agent", which is what the default configuration does anyway.
+ */
+export function looksLikeSubagent(agent) {
+  try {
+    const header = agent?.session?.header;
+    if (header === null || typeof header !== 'object') return false;
+    if (header.parentSession !== undefined && header.parentSession !== null) return true;
+    return header.origin === 'subagent';
+  } catch {
+    return false;
+  }
+}
+
+/** Should this session be left alone because delegated work is exempt? */
+export function sparesSubagent(config, isSubagent) {
+  return config?.applyToSubagents === false && isSubagent === true;
+}
+
+/**
  * Should this call be answered without a request?
  *
  * Returns `null` for every call the plugin has no opinion about. When it does
@@ -380,7 +405,17 @@ export function apply(ctx) {
 
   const readConfig = createConfigReader(warn);
   const currentConfig = () => layer(readConfig);
-  const verdict = () => resolveDuty(resolveNow(currentConfig()), currentConfig());
+
+  /**
+   * Session ids observed to be delegated subagents.
+   *
+   * `agent/request` runs earlier in the same step and carries the whole agent,
+   * so it is where the classification is learned; `llm/stream` and
+   * `tools/pre-execute` only ever see a session id and consult this set.
+   */
+  const subagentSessions = new Set();
+  const isSubagent = (sessionId) => typeof sessionId === 'string' && subagentSessions.has(sessionId);
+
   markLoaded();
 
   // Cordis dispatches an event to the emitting context and its ancestors, so a
@@ -394,7 +429,10 @@ export function apply(ctx) {
   // 1. Off duty: answer without sending anything.
   ctx.effect(() =>
     events.on('llm/stream', (options, next) => {
-      const decision = decide(currentConfig(), options);
+      const config = currentConfig();
+      if (sparesSubagent(config, isSubagent(options?.sessionId))) return next();
+
+      const decision = decide(config, options);
       if (decision === null) return next();
 
       if (decision.exempt) {
@@ -422,11 +460,19 @@ export function apply(ctx) {
       const config = currentConfig();
       if (config.enabled === false) return base;
 
+      // The one place the whole agent is in hand, so the one place a delegated
+      // session can be recognised for the two hooks that only see an id.
+      if (looksLikeSubagent(payload?.agent)) {
+        const id = payload?.agent?.id;
+        if (typeof id === 'string') subagentSessions.add(id);
+      }
+
       const sessionId = payload?.agent?.id;
       if (typeof sessionId === 'string') {
         const exempt = Array.isArray(config.exemptSessions) ? config.exemptSessions : [];
         if (exempt.includes(sessionId)) return base;
       }
+      if (sparesSubagent(config, isSubagent(sessionId))) return base;
 
       const duty = resolveDuty(resolveNow(config), config);
       const replacement = { ...base };
@@ -479,6 +525,7 @@ export function apply(ctx) {
         const exempt = Array.isArray(config.exemptSessions) ? config.exemptSessions : [];
         if (exempt.includes(sessionId)) return next();
       }
+      if (sparesSubagent(config, isSubagent(sessionId))) return next();
 
       const duty = resolveDuty(resolveNow(config), config);
       if (duty.state !== OFF_DUTY && duty.state !== LIGHTS_OUT) return next();

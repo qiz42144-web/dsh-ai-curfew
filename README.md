@@ -70,6 +70,7 @@ dsh plugin --profile <你的 profile> add link:/absolute/path/to/ai-curfew
 | `windingReasoningEffort` | `null` | 可选：宵禁期间降到某个 reasoning effort id |
 | `dryRun` | `false` | 只判定并记录，照常发请求（安全试跑） |
 | `debugNow` | `null` | 时间机器：`HH:MM` 或 `YYYY-MM-DD HH:MM` |
+| `applyToSubagents` | `true` | 子代理是否一起宵禁；设 `false` 让派出去的活继续干完 |
 | `exemptSessions` | `[]` | 豁免的会话 id，完全不干预 |
 | `safetyMaxTokens` | `null` | 见下方说明，默认关闭 |
 

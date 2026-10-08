@@ -77,11 +77,12 @@ shapes, not that the shell renders them.
 
 ## Known limits
 
-- **`applyToSubagents` is not implemented.** The intended knob would exempt subagent sessions,
-  but `llm/stream` and `agent/request` see a session id, not a session. A subagent's session
-  header does record `origin: 'subagent'`, so the classification is possible — it needs a
-  registry keyed by session id, which is not built yet. For now every session is gated except
-  those named in `exemptSessions`.
+- **Subagent classification leans on an undocumented shape.** `applyToSubagents: false` spares
+  delegated sessions, and the classification is learned in `agent/request` from
+  `agent.session.header.parentSession` / `.origin` — the same access a sibling plugin uses, but
+  not part of the published `Agent` contract, which documents only `id`. Every access is guarded
+  and a miss falls back to "treat it as a root agent", which is the default behaviour; the
+  classification itself is covered by tests, but not against a live subagent.
 - **The holiday table ends at 2026.** See [`PROVENANCE.md`](../PROVENANCE.md).
 - **The client polls once a minute**, so a state change can be up to a minute stale while the
   host-side verdict is always current.

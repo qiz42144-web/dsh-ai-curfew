@@ -102,6 +102,9 @@ export const DEFAULTS = {
   // Hard lever: a turn that is already running must not start new work once the
   // AI is off the clock.
   denyToolsWhenOffDuty: true,
+  // Delegated work is gated too by default. Set this to false to let subagents
+  // keep working while the front desk is closed.
+  applyToSubagents: true,
   exemptSessions: [],
   dryRun: false, // decide and record, but still send the request
   debugNow: null, // 'HH:MM' or 'YYYY-MM-DD HH:MM'; null = real clock

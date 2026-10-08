@@ -6,9 +6,39 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { DEFAULTS } from '../config.js';
-import { decide, syntheticStream } from '../index.js';
+import { decide, looksLikeSubagent, sparesSubagent, syntheticStream } from '../index.js';
 
 const config = (overrides = {}) => ({ ...structuredClone(DEFAULTS), ...overrides });
+
+test('a delegated session is recognised from its agent record', () => {
+  assert.equal(looksLikeSubagent({ id: 's', session: { header: { parentSession: 'root' } } }), true);
+  assert.equal(looksLikeSubagent({ id: 's', session: { header: { origin: 'subagent' } } }), true);
+  assert.equal(looksLikeSubagent({ id: 's', session: { header: { parentSession: null } } }), false);
+  assert.equal(looksLikeSubagent({ id: 's', session: { header: { id: 's' } } }), false, 'a root session');
+});
+
+test('an unrecognised agent shape degrades to "root" instead of throwing', () => {
+  // The shape inspected here is not part of the documented contract, so every
+  // access is guarded and a miss must fall back to the default behaviour.
+  assert.equal(looksLikeSubagent(undefined), false);
+  assert.equal(looksLikeSubagent(null), false);
+  assert.equal(looksLikeSubagent({ id: 's' }), false);
+  assert.equal(looksLikeSubagent({ id: 's', session: null }), false);
+  assert.equal(
+    looksLikeSubagent({
+      get session() {
+        throw new Error('hostile getter');
+      },
+    }),
+    false,
+  );
+});
+
+test('delegated work is gated unless it is explicitly spared', () => {
+  assert.equal(sparesSubagent(config(), true), false, 'the shipped default gates subagents too');
+  assert.equal(sparesSubagent(config({ applyToSubagents: false }), true), true);
+  assert.equal(sparesSubagent(config({ applyToSubagents: false }), false), false, 'a root session is still gated');
+});
 
 test('a lights-out moment is answered with the canned reply', () => {
   const decision = decide(config({ debugNow: '03:10' }), { sessionId: 'session-a' });

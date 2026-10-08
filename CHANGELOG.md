@@ -43,3 +43,5 @@ First working version. Behaviour, in the order it was verified against a running
   failure mode. See `docs/architecture.md`.
 - Tool calls are denied while off duty, so a turn already running cannot start new work
   across the boundary.
+- `applyToSubagents` (default `true`) gates delegated work as well; set it to `false` to let
+  subagents finish while the front desk is closed.
