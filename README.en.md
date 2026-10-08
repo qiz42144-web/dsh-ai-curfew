@@ -15,7 +15,7 @@ still receives your message — it just answers with one full stop.
 ![node >=22](badges/node.svg)
 ![platform DeepSeek Harness](badges/platform.svg)
 ![dependencies none](badges/dependencies.svg)
-![tests node --test](badges/tests.svg)
+![tests](https://github.com/qiz42144-web/dsh-ai-curfew/actions/workflows/test.yml/badge.svg)
 ![off-duty cost 0 tokens](badges/cost.svg)
 ![license MIT](badges/license.svg)
 
@@ -145,7 +145,13 @@ without a Host.
 
 The badges are **committed SVG**, regenerated with `node scripts/make-badges.mjs`. They are not
 shields.io URLs: a README should not depend on a third-party image proxy to render, and for
-readers where that proxy is unreachable the badges would simply be broken pictures.
+readers where that proxy is unreachable the badges would simply be broken pictures. The test
+badge is the exception — it is GitHub's own workflow badge, also served from github.com, because
+it reports whether the suite passes right now rather than which command runs it.
+
+CI runs on GitHub Actions: Node 22 and 24 across Linux and Windows. With no dependencies there is
+**no install step** — checkout, then one `node --test`. The same pipeline checks that `badges/`
+still matches its generator, so a hand-edited badge or an unrerun generator change fails loudly.
 
 **Editing the source has no effect until DSH restarts.** A running process caches plugin ES
 modules by resolved URL, and disabling and re-enabling an entry re-runs `apply()` without

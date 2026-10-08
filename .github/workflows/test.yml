@@ -1,0 +1,42 @@
+# The plugin has no dependencies, so there is no install step, no lockfile and no
+# cache to keep warm: checkout, Node, one command.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: node ${{ matrix.node }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # engines.node is ">=22", so the floor is tested next to the current
+        # line; a Windows job is here because that is where DSH mostly runs.
+        node: ['22', '24']
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: test
+        run: node --test
+
+      # The committed badges are generator output. A badge edited by hand, or a
+      # change to the generator without rerunning it, would leave the two
+      # disagreeing with nothing to say so.
+      - name: badges match their generator
+        if: matrix.os == 'ubuntu-latest' && matrix.node == '24'
+        run: |
+          node scripts/make-badges.mjs
+          git diff --exit-code -- badges

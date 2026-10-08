@@ -12,7 +12,7 @@
 ![node >=22](badges/node.svg)
 ![platform DeepSeek Harness](badges/platform.svg)
 ![dependencies none](badges/dependencies.svg)
-![tests node --test](badges/tests.svg)
+![tests](https://github.com/qiz42144-web/dsh-ai-curfew/actions/workflows/test.yml/badge.svg)
 ![off-duty cost 0 tokens](badges/cost.svg)
 ![license MIT](badges/license.svg)
 
@@ -132,7 +132,12 @@ node --test          # 零依赖；验收表就是断言
 行为判定全是纯函数（`duty.js` / `clock.js`），所以整套班表不需要跑 Host 就能测。
 
 徽章是**提交进仓库的本地 SVG**（`node scripts/make-badges.mjs` 重新生成），不走 shields.io ——
-不依赖任何第三方服务，也不会因为图片代理不可达而裂图。
+不依赖任何第三方服务，也不会因为图片代理不可达而裂图。只有 tests 那个是 GitHub 自己的工作流
+徽章（同样在 github.com 上，不经第三方），因为它报的是**测试现在过不过**，比"用什么命令跑"有用。
+
+CI 跑在 GitHub Actions 上：Node 22 / 24 × Linux / Windows 四个组合。因为零依赖，**没有 install
+步骤**，就是 checkout + 一行 `node --test`。同一条流水线还会校验 `badges/` 与生成器一致 ——
+手改徽章或改了生成器没重跑，都会红。
 
 **改完代码要重启 DSH 才生效。** 运行中的进程按 URL 缓存插件的 ES module，停用再启用只会重跑
 `apply()`，不会重新 import。`scripts/dev-reload.ps1` 用一个新 revision 目录 + 重接 junction 绕开它，
