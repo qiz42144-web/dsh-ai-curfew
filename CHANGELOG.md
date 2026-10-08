@@ -32,7 +32,8 @@ First working version. Behaviour, in the order it was verified against a running
 - `/curfew status | on | off <duration> | now | debug <time> | debug clear`.
 - `$DSH_HOME/dsh-ai-curfew/config.json` is re-read whenever it changes; `/curfew` overrides
   layer over it in memory only.
-- A sidebar capsule polls `/ai-curfew/state.json`, behind the Host's connection trust fence.
+- A sidebar capsule shows the current verdict, and a settings page draws the configured day as
+  a 24-hour band. Both read `/ai-curfew/state.json`, behind the Host's connection trust fence.
 
 ### Notes
 
