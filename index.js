@@ -120,7 +120,15 @@ export function promptProbePath() {
   return join(dshHome(), 'dsh-ai-curfew', 'prompt-probe.json');
 }
 
-function promptProbe(entry) {
+/**
+ * Record that the persona hook ran and what it injected.
+ *
+ * Only during a dry run: this is a diagnostic for answering "is the persona
+ * reaching an agent's prompt at all?", and a file write on every assembly is not
+ * a price worth paying the rest of the time.
+ */
+function promptProbe(entry, config) {
+  if (config?.dryRun !== true) return;
   try {
     const file = promptProbePath();
     mkdirSync(dirname(file), { recursive: true });
@@ -451,7 +459,7 @@ export function apply(ctx) {
       const result = await next();
       const config = currentConfig();
       const text = personaFor(resolveDuty(resolveNow(config), config), config);
-      promptProbe({ hook: 'system-prompt/assemble', fired: true, text: text ?? '' });
+      promptProbe({ hook: 'system-prompt/assemble', fired: true, text: text ?? '' }, config);
       if (text === null || text === '') return result;
 
       const sections = Array.isArray(result?.sections) ? result.sections : [];
