@@ -39,6 +39,10 @@ First working version. Behaviour, in the order it was verified against a running
   reference. Both read `/ai-curfew/state.json`, behind the Host's connection trust fence.
   Layout the page needs to work is inline, and the stylesheet falls back to a package-owned
   `<style>` element when the runner provides no style seat.
+- The client sleeps to the next schedule edge instead of polling on a flat interval, so the
+  capsule flips within a couple of seconds of a boundary rather than up to a minute later. It
+  still polls every minute inside the curfew, where the percentage moves, and wakes when an
+  overtime shift ends.
 
 ### Notes
 

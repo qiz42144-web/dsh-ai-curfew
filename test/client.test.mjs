@@ -219,11 +219,66 @@ test('a poll that comes back empty retries in seconds, not a minute', async () =
   assert.deepEqual(threw, [3000], 'a thrown fetch must be retried the same way');
 });
 
-test('a poll that lands settles into the once-a-minute cadence', async () => {
+test('a poll that lands settles into the cadence the schedule implies', async () => {
   const settled = await pollOnce({
     response: { ok: true, json: () => Promise.resolve({ state: 'on-duty', schedule }) },
   });
-  assert.deepEqual(settled, [60000]);
+  assert.deepEqual(settled, [60000], 'with no clock reading to work from, fall back to a flat minute');
+});
+
+test('the capsule wakes just after the next schedule edge, not a minute later', async () => {
+  // The complaint that produced this: at 14:00 the capsule could sit visibly
+  // stale for up to a minute, because it polled on a flat interval instead of
+  // sleeping to a boundary it already knew about.
+  const reading = (minutes, extra = {}) => ({
+    ok: true,
+    json: () =>
+      Promise.resolve({
+        state: 'on-duty',
+        nowMinutes: minutes,
+        at: Date.now(),
+        schedule,
+        ...extra,
+      }),
+  });
+
+  // 13:58 -> the 14:00 peak edge is two minutes out.
+  assert.deepEqual(await pollOnce({ response: reading(13 * 60 + 58) }), [122000]);
+
+  // 13:00 -> an hour out, so the ceiling applies and the grace still lands after it.
+  assert.deepEqual(await pollOnce({ response: reading(13 * 60) }), [302000]);
+
+  // The dead of night: the next edge is hours away, same ceiling.
+  assert.deepEqual(await pollOnce({ response: reading(4 * 60) }), [302000]);
+});
+
+test('an overtime shift wakes the capsule when it ends', async () => {
+  const shift = {
+    ok: true,
+    json: () =>
+      Promise.resolve({
+        state: 'on-duty',
+        nowMinutes: 14 * 60,
+        at: Date.now(),
+        overtimeMs: 90 * 60000,
+        schedule,
+      }),
+  };
+  assert.deepEqual(await pollOnce({ response: shift }), [302000], 'capped, then the grace');
+});
+
+test('inside the curfew it keeps polling, because the percentage moves', async () => {
+  const winding = {
+    ok: true,
+    json: () =>
+      Promise.resolve({
+        state: 'winding',
+        nowMinutes: 23 * 60 + 30,
+        at: Date.now(),
+        schedule,
+      }),
+  };
+  assert.deepEqual(await pollOnce({ response: winding }), [60000]);
 });
 
 // --- the stylesheet ---------------------------------------------------------

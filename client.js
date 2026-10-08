@@ -26,8 +26,10 @@ window.__ModuleLoader__.load({
     const h = React.createElement;
 
     const STATE_URL = '/ai-curfew/state.json';
-    const POLL_MS = 60000;
-    const RETRY_MS = 3000;
+    const POLL_MS = 60000; // inside the curfew, and the fallback everywhere else
+    const RETRY_MS = 3000; // a failed or empty poll
+    const IDLE_MS = 300000; // never sleep longer than this
+    const BOUNDARY_GRACE_MS = 2000; // let the Host's clock tick past the edge
     const BLOCKS = 96; // one per quarter hour
     const STYLE_ID = 'dsh-ai-curfew-style';
 
@@ -144,7 +146,7 @@ window.__ModuleLoader__.load({
                 return;
               }
               setState(next);
-              schedule(POLL_MS);
+              schedule(nextDelayMs(next));
             })
             .catch(() => {
               if (live) schedule(RETRY_MS);
@@ -159,6 +161,74 @@ window.__ModuleLoader__.load({
       }, []);
 
       return state;
+    }
+
+    /**
+     * The next moment the schedule changes, in minutes from `minute`.
+     *
+     * The capsule used to poll once a minute regardless, so a boundary could sit
+     * visibly stale for up to a minute. The client already holds the whole
+     * schedule, so it can sleep until the transition instead of asking repeatedly.
+     */
+    function nextBoundaryIn(schedule, minute) {
+      if (schedule === null || typeof schedule !== 'object' || minute === null) return null;
+
+      const edges = [];
+      for (const key of ['wakeUp', 'curfewStart', 'lightsOut']) {
+        const at = minutesOf(schedule[key]);
+        if (at !== null) edges.push(at);
+      }
+      if (schedule.peakShift !== false && Array.isArray(schedule.peakWindows)) {
+        for (const window of schedule.peakWindows) {
+          if (!Array.isArray(window) || window.length < 2) continue;
+          if (Number.isFinite(window[0])) edges.push(window[0] * 60);
+          if (Number.isFinite(window[1])) edges.push(window[1] * 60);
+        }
+      }
+
+      let best = null;
+      for (const edge of edges) {
+        const delta = (((edge - minute) % 1440) + 1440) % 1440;
+        // Standing exactly on an edge means the poll that produced this reading
+        // already saw it; the next one is a full day away, which the ceiling caps.
+        if (delta === 0) continue;
+        if (best === null || delta < best) best = delta;
+      }
+      return best;
+    }
+
+    /** The minute of day a reading describes, aged by however long ago it arrived. */
+    function minuteOf(state) {
+      if (state === null || typeof state !== 'object') return null;
+      if (typeof state.nowMinutes !== 'number') return null;
+      const elapsed = typeof state.at === 'number' ? Date.now() - state.at : 0;
+      return (((state.nowMinutes + Math.floor(elapsed / 60000)) % 1440) + 1440) % 1440;
+    }
+
+    /**
+     * How long to wait before asking again.
+     *
+     * Three cases matter and only one of them wants a fixed interval:
+     *   - inside the curfew the percentage moves every minute, so keep polling
+     *   - an overtime shift ends at a known instant, so wake up just after it
+     *   - otherwise sleep to the next schedule edge
+     *
+     * The wait is capped but the grace is added afterwards, so a boundary-aimed
+     * wake-up always lands just past the edge rather than exactly on it -- landing
+     * on it risks reading the previous state and waiting another full interval.
+     */
+    function nextDelayMs(state) {
+      const capped = (ms) => Math.min(Math.max(ms, RETRY_MS), IDLE_MS);
+      if (state === null || typeof state !== 'object') return RETRY_MS;
+
+      const overtimeMs = typeof state.overtimeMs === 'number' ? state.overtimeMs : 0;
+      if (overtimeMs > 0) return capped(overtimeMs) + BOUNDARY_GRACE_MS;
+
+      if (state.state === 'winding') return POLL_MS;
+
+      const boundary = nextBoundaryIn(state.schedule, minuteOf(state));
+      if (boundary === null) return POLL_MS;
+      return capped(boundary * 60000) + BOUNDARY_GRACE_MS;
     }
 
     function faceFor(state) {
@@ -377,7 +447,7 @@ window.__ModuleLoader__.load({
       let budget = '还没读到班表';
       if (state !== null && typeof state === 'object') {
         if (!state.enabled) budget = '不干预（已停用）';
-        else if (typeof state.reply === 'string') budget = `不发送请求，只回 ${state.reply}`;
+        else if (typeof state.reply === 'string') budget = `不发送请求，只回「${state.reply}」`;
         else if (typeof state.maxTokens === 'number') budget = `${state.maxTokens} tokens`;
         else budget = '不干预';
       }

@@ -129,17 +129,32 @@ instead of being short-circuited.
 
 That closes the composer-to-handler path, the one link the direct command tests cannot reach.
 
+### The settings page renders
+
+**How.** Looked at in the running shell: the status card, the 24-hour band with its hour ticks
+and cursor at the current minute, the colour legend, and the command table all render as
+intended. The README's badge row renders too.
+
+Two defects were found on the way there and fixed:
+
+- **The page had no CSS at all.** The client asked the runner for a stylesheet seat and quietly
+  did without when there wasn't one, which turned "no theming" into "no styles": axis labels ran
+  together on one line and legend swatches collapsed. It now falls back to a package-owned
+  `<style>` element, and the layout the page cannot work without is inline.
+- **The capsule could sit on its fallback text for a minute.** It polled on a flat interval, so
+  a schedule boundary — which the client already knows the time of — could take a full interval
+  to appear. It now sleeps to the next edge and polls just past it.
+
 ## Not yet verified
 
 | Item | Why it is outstanding | How to check |
 |---|---|---|
-| The settings page as rendered pixels | The capsule is confirmed rendering (above) and the page is confirmed registered, but the rebuilt page has not been looked at | Open Settings and find the "AI 熄灯" page |
-| The capsule changing state on its own | It polls once a minute, so a boundary crossing should flip it unattended — not yet watched across one | Watch the capsule at 18:00, or open the page at 23:00 |
+| The capsule flipping at a boundary, unattended | The boundary-aware scheduling is unit-tested, but a real edge has not been watched | Leave a page open across 18:00 or 23:00 |
 
 Everything else has been observed on a live Host: the peak gate acting on a real session's
 traffic unattended, the budget clamp measured against a control session, the persona reaching a
-logged system prompt, the tool gate refusing a call, and every command branch both in tests and
-from the composer.
+logged system prompt, the tool gate refusing a call, every command branch both in tests and from
+the composer, and both client surfaces rendering.
 
 ## Known limits
 
