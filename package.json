@@ -1,0 +1,48 @@
+{
+  "name": "dsh-ai-curfew",
+  "version": "0.1.0",
+  "description": "AI 熄灯：让 AI 也下班。到点后回复越来越短，深夜把 max_tokens 从 2048 压到 64，凌晨三点只回一句「明天再说」；高峰时段不上班，已下班照样收消息但只回一个句号。零 token、零成本。",
+  "type": "module",
+  "license": "MIT",
+  "main": "index.js",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "curfew",
+    "off-duty",
+    "peak-hours"
+  ],
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "icon.svg",
+    "locale/*.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  },
+  "meta": {
+    "title": "AI Curfew",
+    "description": "Clock the AI off duty: shrinking replies after curfew, max_tokens 2048→64 overnight, and a bare full stop once it is off the clock. No request is sent, so it costs zero tokens."
+  }
+}

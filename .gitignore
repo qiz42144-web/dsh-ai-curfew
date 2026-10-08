@@ -1,0 +1,15 @@
+# Installed / generated
+node_modules/
+*.bak
+*.log
+
+# Local-only research and handoff notes.
+# These carry machine-specific absolute paths and third-party documentation
+# snapshots; the public rewrite lives in docs/ and links upstream instead.
+HANDOFF.md
+research/
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini

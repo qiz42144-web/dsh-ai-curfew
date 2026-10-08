@@ -1,0 +1,4 @@
+{
+  "title": "AI Curfew",
+  "description": "Clocks the AI off duty: replies shrink after curfew, the overnight budget drops 2048 to 64, and after 3am it only says \"tomorrow\". While off duty no request is sent at all, so it costs zero tokens."
+}

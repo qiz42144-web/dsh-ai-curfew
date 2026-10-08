@@ -1,0 +1,4 @@
+# dsh-ai-curfew bundle patch: inserts this plugin into the profile's loader tree.
+- insert:
+    - id: ai-curfew
+      name: dsh-ai-curfew
