@@ -229,6 +229,8 @@ window.__ModuleLoader__.load({
     function CurfewSettings() {
       const state = useCurfewState();
       const schedule = state !== null && typeof state === 'object' ? state.schedule : null;
+      const suspended = state !== null && typeof state === 'object' && state.enabled === false;
+      const scheduleName = NAME[state?.scheduleState] ?? state?.scheduleState;
 
       const legend = Object.keys(BAND_LABEL).map((kind) =>
         h(
@@ -243,6 +245,9 @@ window.__ModuleLoader__.load({
         'div',
         { className: 'ai-curfew-page' },
         h('div', { className: 'ai-curfew-now' }, `现在：${capsuleText(state)}`),
+        suspended && typeof scheduleName === 'string'
+          ? h('div', { className: 'ai-curfew-note' }, `插件已停用；按班表本应是${scheduleName}。`)
+          : null,
         state?.reason ? h('div', { className: 'ai-curfew-note' }, `依据：${state.reason}`) : null,
         h(ScheduleBand, { schedule }),
         h('div', { className: 'ai-curfew-legend' }, legend),

@@ -55,6 +55,14 @@ landing exactly on every anchor, all three curve shapes, peak windows on weekday
 statutory holidays, the wrap past midnight, the lights-out boundary at 03:00 and wake-up at
 09:00, the time machine, session exemption, dry-run semantics, and duration parsing.
 
+### The client half's surfaces are live
+
+**How.** The client `Slots` inspection provider queries the running page, not a mock. It
+reports `ai-curfew` among the occupants of `sidebar.footer.action` (order 60, active) and of
+`settings.section` (order 40, active). Since the page only lists what it actually mounted, that
+confirms the bundle was served, materialized, and ran both registrations — the part a shell
+client cannot see, because the bundle route answers an unauthenticated request with 401/404.
+
 ### The client half's schedule band
 
 **How.** `test/client.test.mjs` loads `client.js` through a stub `__ModuleLoader__` with a
@@ -67,12 +75,27 @@ the morning. A missing schedule degrades to a flat band rather than throwing.
 This is a fake-DOM test, not a browser test: it proves the classification and the element
 shapes, not that the shell renders them.
 
+### The `/curfew` subcommands
+
+**How.** `test/command.test.mjs` drives the handler directly — it is a pure function of the
+configuration, the file overlay, and whatever the previous command left in memory. Each branch
+is asserted: `status` reports the verdict, the budget and the config path; a bare invocation
+equals `status`; `now` forces lights-out and `on` hands the day back; `off` snoozes with a
+default and rejects a malformed or zero duration; `debug` moves the clock, survives a full
+timestamp, and refuses what it cannot parse; an unknown verb lists what is available.
+
+The test suite is also what caught the status text reporting `winding · 560 tokens` while a
+snooze was in force — the schedule's verdict, not the effective one. Both the command and the
+capsule now report what will actually happen and keep the schedule as context.
+
+What this does not cover is DSH's own plumbing from the composer to the handler.
+
 ## Not yet verified
 
 | Item | Why it is outstanding | How to check |
 |---|---|---|
-| `/curfew` is registered and behaves | Commands are invoked from the UI, not by an agent | Type `/curfew`, then `/curfew debug 01:30`, then `/curfew on` |
-| The capsule and settings page render in the shell | Requires a browser; the bundle route is behind the connection trust fence and answers a shell client with 401/404 even for known-good DSH routes | Look at the sidebar foot, then open Settings |
+| Typing `/curfew` reaches the handler | The subcommands are tested directly, but the composer-to-handler path is DSH's, and an agent cannot issue a slash command | Type `/curfew`, then `/curfew debug 01:30`, then `/curfew on` |
+| The capsule and settings page as rendered pixels | Both are confirmed registered and active in the live page (the client slot tree lists `ai-curfew` in `sidebar.footer.action` at order 60 and in `settings.section` at order 40), but appearance needs eyes | Look at the sidebar foot, then open Settings |
 | Peak/valley gate against the real clock | Exercised through `debugNow` and, for lights-out, on the real clock — but not yet across a real 09:00 boundary | Leave it running into a weekday morning |
 
 ## Known limits

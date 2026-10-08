@@ -131,6 +131,27 @@ test('a missing schedule degrades to a flat band instead of throwing', () => {
   assert.ok(colours.every((colour) => colour === COLOUR['on-duty']));
 });
 
+/** Collect every string rendered anywhere in the tree. */
+function texts(element, found = []) {
+  if (typeof element === 'string') { found.push(element); return found; }
+  if (element === null || typeof element !== 'object') return found;
+  const node = typeof element.type === 'function' ? element.type(element.props) : element;
+  if (node === null || typeof node !== 'object') return found;
+  for (const child of flatten(node.children)) texts(child, found);
+  return found;
+}
+
+test('the settings page says so when the plugin is not acting', () => {
+  mockState = { enabled: false, state: 'on-duty', scheduleState: 'winding', schedule };
+  const rendered = texts(componentFor('settings.section')()).join(' | ');
+
+  assert.match(rendered, /🟢 上班中/, 'the effective verdict is what is shown');
+  assert.match(rendered, /已停用；按班表本应是打烊中/, 'and the schedule is kept as context');
+
+  mockState = { enabled: true, state: 'winding', scheduleState: 'winding', schedule };
+  assert.doesNotMatch(texts(componentFor('settings.section')()).join(' | '), /已停用/);
+});
+
 test('the capsule is registered beside Settings', () => {
   mockState = { state: 'winding', progress: 0.46, reason: 'test' };
   const Capsule = componentFor('sidebar.footer.action');

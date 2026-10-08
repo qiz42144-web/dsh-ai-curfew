@@ -254,16 +254,22 @@ function statusText(readConfig) {
         ? '不发送请求'
         : '不干预';
 
+  // A snooze and `enabled: false` both arrive here as a disabled config, and in
+  // both cases the schedule is no longer what will actually happen. Reporting
+  // the verdict anyway would be a lie about the only thing this command is for.
+  const acting = config.enabled !== false;
+
   return [
     'AI 熄灯 · 当前班表',
-    `  判定       ${duty.name}`,
+    acting
+      ? `  判定       ${duty.name}`
+      : `  判定       已停用${snoozeLeftMs() > 0 ? `（小睡中，还剩 ${Math.ceil(snoozeLeftMs() / 60000)} 分钟）` : '（配置 enabled: false）'}`,
     `  依据       ${duty.reason}`,
-    `  预算       ${budget}`,
+    acting ? `  预算       ${budget}` : `  若不停用   ${duty.name} · ${budget}`,
     duty.reply === null ? null : `  回法       ${JSON.stringify(duty.reply)}`,
     `  峰值闸门   ${config.peakShift === false ? '关' : '开'}`,
     `  时间来源   ${overrides.debugNow !== null ? `运行时 ${overrides.debugNow}` : stored.debugNow ? `配置 ${stored.debugNow}` : '真实时间'}`,
     overrides.forceOff ? '  覆盖       强制下班（/curfew on 取消）' : null,
-    snoozeLeftMs() > 0 ? `  覆盖       小睡中，还剩 ${Math.ceil(snoozeLeftMs() / 60000)} 分钟` : null,
     `  配置文件   ${configPath()}`,
   ]
     .filter((line) => line !== null)
@@ -304,12 +310,18 @@ function statePayload(readConfig) {
   const config = layer(() => stored);
   const now = resolveNow(config);
   const duty = resolveDuty(now, config);
+  // A snooze and `enabled: false` both arrive here as a disabled config. The
+  // capsule must show what will actually happen, not what the schedule would
+  // have said, so `state` is the effective one and `scheduleState` keeps the
+  // schedule's own verdict for the settings page.
+  const acting = config.enabled !== false;
   return {
     at: Date.now(),
-    enabled: stored.enabled !== false,
-    state: duty.name,
-    reply: duty.reply,
-    maxTokens: duty.maxTokens,
+    enabled: acting,
+    state: acting ? duty.name : 'on-duty',
+    scheduleState: duty.name,
+    reply: acting ? duty.reply : null,
+    maxTokens: acting ? duty.maxTokens : null,
     progress: duty.progress,
     peak: duty.peak,
     reason: duty.reason,
@@ -331,9 +343,12 @@ const err = (text) => ({ kind: 'error', text });
 
 /**
  * `/curfew` — the only way to see the current verdict and to override it without
- * editing a file. Commands never reach the model.
+ * editing a file. Commands never reach the model, which is what makes this the
+ * escape hatch when the AI has already locked itself out.
+ *
+ * Exported so the subcommands can be exercised without a UI.
  */
-function curfewCommand(readConfig) {
+export function curfewCommand(readConfig) {
   return {
     name: 'curfew',
     description: '查看或临时调整 AI 熄灯班表',
