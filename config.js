@@ -71,7 +71,21 @@ export const DEFAULTS = {
   holidays: HOLIDAYS_2026,
 
   // Safety and scope.
-  safetyMaxTokens: 16,
+  //
+  // `safetyMaxTokens` is OFF by default, and that is deliberate. The stream gate
+  // is what keeps an off-duty turn from reaching the provider, so a second cap
+  // here is redundant wherever it would help — and harmful where it would not.
+  // A small cap on a reasoning model is spent entirely on reasoning, so the
+  // provider returns no text and no tool call and fails the turn outright:
+  //
+  //   Command Code reached the output token limit without producing answer text
+  //   or a tool call (finish_reason=length, max_tokens=16, outputTokens=16,
+  //   reasoningTokens=16)  [OUTPUT_TOKEN_LIMIT]
+  //
+  // Set a number only if you want a hard ceiling on an off-duty request that the
+  // stream gate somehow let through, and size it for the model's reasoning
+  // budget rather than for the reply you expect.
+  safetyMaxTokens: null,
   // Optional: a valid reasoning-effort id to drop to during the curfew. Left
   // unset by default, because the accepted ids belong to the provider and model
   // and guessing one would be worse than leaving the machine's own choice alone.

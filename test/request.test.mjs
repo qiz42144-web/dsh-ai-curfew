@@ -38,13 +38,29 @@ test('the cap tracks the curve through the night', () => {
   assert.equal(budget('02:59'), 68);
 });
 
-test('off duty leaves only the safety cap', () => {
-  const { conf, duty } = dutyAt('03:10');
-  assert.equal(clampMaxTokens(undefined, duty, conf), 16);
-  assert.equal(clampMaxTokens(8, duty, conf), 8, 'the safety cap is still a cap, not a floor');
+test('the safety cap applies only when it is configured', () => {
+  // Off by default: the stream gate is the mechanism, and a mis-sized cap on a
+  // reasoning model fails the turn outright instead of shortening it.
+  const off = dutyAt('03:10');
+  assert.equal(off.conf.safetyMaxTokens, null, 'the shipped default must stay off');
+  assert.equal(clampMaxTokens(undefined, off.duty, off.conf), null);
+  assert.equal(clampMaxTokens(4096, off.duty, off.conf), null);
 
-  const peak = dutyAt('2026-09-29 10:00');
-  assert.equal(clampMaxTokens(4096, peak.duty, peak.conf), 16);
+  const on = dutyAt('03:10', { safetyMaxTokens: 512 });
+  assert.equal(clampMaxTokens(undefined, on.duty, on.conf), 512);
+  assert.equal(clampMaxTokens(8, on.duty, on.conf), 8, 'the safety cap is still a cap, not a floor');
+
+  const peak = dutyAt('2026-09-29 10:00', { safetyMaxTokens: 512 });
+  assert.equal(clampMaxTokens(4096, peak.duty, peak.conf), 512);
+});
+
+test('a dry run never changes what the machine would send', () => {
+  const curfew = dutyAt('01:30', { dryRun: true });
+  assert.equal(curfew.duty.maxTokens, 560, 'the verdict is still reported');
+  assert.equal(clampMaxTokens(undefined, curfew.duty, curfew.conf), null, 'but nothing is applied');
+
+  const dark = dutyAt('03:10', { dryRun: true, safetyMaxTokens: 512 });
+  assert.equal(clampMaxTokens(undefined, dark.duty, dark.conf), null);
 });
 
 test('on duty is left completely alone', () => {

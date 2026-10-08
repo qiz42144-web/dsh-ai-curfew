@@ -237,6 +237,62 @@ function statusText(readConfig) {
     .join('\n');
 }
 
+/** The client-facing status route. */
+const STATUS_ROUTE = '/ai-curfew/state.json';
+
+/**
+ * Ask the Host's trust fence whether this request may be served at all.
+ *
+ * @param connection - the `connection` service, when the Host mounts one.
+ * @param request - the incoming request.
+ * @returns an HTTP status to answer with, or `0` to serve the request.
+ */
+function trustDenial(connection, request) {
+  if (connection === undefined || connection === null) return 0;
+  if (typeof connection.requestRejection !== 'function') return 0;
+  try {
+    const code = connection.requestRejection(request);
+    if (code === undefined || code === null || code === false || code === 0) return 0;
+    return typeof code === 'number' ? code : 403;
+  } catch {
+    // A fence that throws must not be read as approval.
+    return 403;
+  }
+}
+
+/**
+ * The payload the status capsule polls.
+ *
+ * Deliberately small, and made only of what is already visible in the
+ * conversation: what the AI is doing, never what was asked of it.
+ */
+function statePayload(readConfig) {
+  const stored = readConfig();
+  const config = layer(() => stored);
+  const now = resolveNow(config);
+  const duty = resolveDuty(now, config);
+  return {
+    at: Date.now(),
+    enabled: stored.enabled !== false,
+    state: duty.name,
+    reply: duty.reply,
+    maxTokens: duty.maxTokens,
+    progress: duty.progress,
+    peak: duty.peak,
+    reason: duty.reason,
+    debug: now.debug,
+    snoozeMs: snoozeLeftMs(),
+    forced: overrides.forceOff,
+    schedule: {
+      wakeUp: config.wakeUp,
+      curfewStart: config.curfewStart,
+      lightsOut: config.lightsOut,
+      peakShift: config.peakShift !== false,
+      peakWindows: config.peakWindows,
+    },
+  };
+}
+
 const ok = (text) => ({ kind: 'success', text });
 const err = (text) => ({ kind: 'error', text });
 
@@ -429,6 +485,51 @@ export function apply(ctx) {
     warn('[ai-curfew] commands service is unavailable; /curfew is not registered');
   } else {
     ctx.effect(() => commands.register(curfewCommand(readConfig)));
+  }
+
+  // 6. The client capsule's data source.
+  //
+  // A same-origin JSON route, not an RPC: `host.call` is only documented for
+  // dynamic packages, so an installed bundle cannot rely on it. Every
+  // self-registered route must ask the trust fence first — it is what rejects
+  // DNS-rebinding and unauthenticated requests.
+  const webServer = ctx.get('webServer');
+  if (webServer === undefined) {
+    warn('[ai-curfew] webServer service is unavailable; the status route is not served');
+  } else {
+    const connection = ctx.get('connection');
+    ctx.effect(() =>
+      webServer.register({
+        kind: 'exact',
+        path: STATUS_ROUTE,
+        handler: (request, response) => {
+          const denial = trustDenial(connection, request);
+          if (denial !== 0) {
+            try {
+              response.statusCode = denial;
+              response.end();
+            } catch {
+              /* the socket may already be gone */
+            }
+            return;
+          }
+          try {
+            response.writeHead(200, {
+              'Content-Type': 'application/json; charset=utf-8',
+              'Cache-Control': 'no-store',
+            });
+            response.end(JSON.stringify(statePayload(readConfig)));
+          } catch (error) {
+            try {
+              response.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+              response.end(JSON.stringify({ error: String(error?.message ?? error) }));
+            } catch {
+              /* ditto */
+            }
+          }
+        },
+      }),
+    );
   }
 
   note('[ai-curfew] host half loaded');

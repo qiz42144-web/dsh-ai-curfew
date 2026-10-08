@@ -173,6 +173,9 @@ export function resolveDuty(now, config) {
  * @returns the cap to apply, or `null` to leave the call untouched.
  */
 export function clampMaxTokens(current, duty, config) {
+  // A dry run observes; it never changes what the machine would send.
+  if (config.dryRun === true) return null;
+
   let budget = null;
   if (duty.state === WINDING) {
     budget = duty.maxTokens;
