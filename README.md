@@ -1,5 +1,7 @@
 # AI Curfew · AI 熄灯
 
+[中文](README.md) | [English](README.en.md)
+
 **把「AI 永远在线」拧成「AI 也要下班」。**
 
 到点之后回复越来越短，深夜档把 `max_tokens` 从 2048 慢慢压到 64，凌晨三点只回一句「明天再说」。
