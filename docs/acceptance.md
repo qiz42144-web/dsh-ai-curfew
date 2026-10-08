@@ -87,6 +87,11 @@ reports `ai-curfew` among the occupants of `sidebar.footer.action` (order 60, ac
 confirms the bundle was served, materialized, and ran both registrations — the part a shell
 client cannot see, because the bundle route answers an unauthenticated request with 401/404.
 
+**And the capsule renders the right verdict.** Observed in the running shell at 12:42 on a
+Thursday, inside the 12:00–14:00 valley: the capsule read `🟢 上班中`. That is the correct
+verdict for that moment, so the full chain is exercised end to end — the state route, the
+connection trust fence, the client bundle, its poll, and the render.
+
 ### The client half's schedule band
 
 **How.** `test/client.test.mjs` loads `client.js` through a stub `__ModuleLoader__` with a
@@ -119,7 +124,8 @@ What this does not cover is DSH's own plumbing from the composer to the handler.
 | Item | Why it is outstanding | How to check |
 |---|---|---|
 | Typing `/curfew` reaches the handler | The subcommands are tested directly, but the composer-to-handler path is DSH's, and an agent cannot issue a slash command | Type `/curfew`, then `/curfew debug 01:30`, then `/curfew on` |
-| The capsule and settings page as rendered pixels | Both are confirmed registered and active in the live page (the client slot tree lists `ai-curfew` in `sidebar.footer.action` at order 60 and in `settings.section` at order 40), but appearance needs eyes | Look at the sidebar foot, then open Settings |
+| The settings page as rendered pixels | The capsule is confirmed rendering (above) and the page is confirmed registered, but nobody has looked at the band itself | Open Settings and find the "AI 熄灯" page |
+| The capsule changing state on its own | It polls once a minute, so a boundary crossing should flip it unattended — not yet watched across one | Watch the capsule at 14:00 on a weekday, or open the page at 23:00 |
 
 Everything else has been observed on a live Host, including the peak gate acting on a real
 session's traffic unattended.
