@@ -159,3 +159,52 @@ export function resolveDuty(now, config) {
     reason: describe(now, config, curfewState, progress, peak),
   };
 }
+
+/**
+ * The token budget one in-flight call should be capped to.
+ *
+ * During the curfew this is the curve. While off duty or dark it is the safety
+ * net: the stream gate means no request should be sent at all, so a tiny cap is
+ * only there so that a gate failure cannot turn into a full-length answer.
+ *
+ * @param current - the budget the machine would use, possibly `undefined` for "adapter default".
+ * @param duty - the verdict from {@link resolveDuty}.
+ * @param config - effective configuration.
+ * @returns the cap to apply, or `null` to leave the call untouched.
+ */
+export function clampMaxTokens(current, duty, config) {
+  let budget = null;
+  if (duty.state === WINDING) {
+    budget = duty.maxTokens;
+  } else if (duty.state === OFF_DUTY || duty.state === LIGHTS_OUT) {
+    // `Number(null)` is 0, which would silently cap every call at zero tokens,
+    // so an unset safety cap means "no cap" rather than "cap at nothing".
+    const raw = config.safetyMaxTokens;
+    budget = raw === null || raw === undefined || raw === '' ? null : Number(raw);
+  }
+  if (budget === null || !Number.isFinite(budget)) return null;
+
+  const base = Number.isFinite(current) ? current : Number.POSITIVE_INFINITY;
+  return Math.min(base, budget);
+}
+
+/**
+ * The tired-persona line to inject for the current verdict.
+ *
+ * Only the curfew says anything: while off duty or dark there is no request to
+ * steer, and on duty the AI is simply itself. The window is split into as many
+ * equal bands as there are lines, so the wording tightens as the budget does.
+ *
+ * @param duty - the verdict from {@link resolveDuty}.
+ * @param config - effective configuration.
+ * @returns the instruction text, or `null` to inject nothing.
+ */
+export function personaFor(duty, config) {
+  if (config.tiredPersona === false) return null;
+  if (duty.state !== WINDING) return null;
+  const texts = Array.isArray(config.tierTexts) ? config.tierTexts : [];
+  if (texts.length === 0) return null;
+  const progress = typeof duty.progress === 'number' ? duty.progress : 0;
+  const band = Math.min(texts.length - 1, Math.max(0, Math.floor(progress * texts.length)));
+  return typeof texts[band] === 'string' ? texts[band] : null;
+}

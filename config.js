@@ -72,6 +72,22 @@ export const DEFAULTS = {
 
   // Safety and scope.
   safetyMaxTokens: 16,
+  // Optional: a valid reasoning-effort id to drop to during the curfew. Left
+  // unset by default, because the accepted ids belong to the provider and model
+  // and guessing one would be worse than leaving the machine's own choice alone.
+  windingReasoningEffort: null,
+  // Soft lever: let the shrinking look like tiredness rather than truncation.
+  // One line per quarter of the curfew window, in order.
+  tiredPersona: true,
+  tierTexts: [
+    '可以正常回答，但不要主动扩展话题。',
+    '回答控制在三句以内。',
+    '只回答被问到的，一句话说完。',
+    '最多 20 字。',
+  ],
+  // Hard lever: a turn that is already running must not start new work once the
+  // AI is off the clock.
+  denyToolsWhenOffDuty: true,
   exemptSessions: [],
   dryRun: false, // decide and record, but still send the request
   debugNow: null, // 'HH:MM' or 'YYYY-MM-DD HH:MM'; null = real clock
