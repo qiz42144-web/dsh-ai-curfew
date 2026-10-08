@@ -141,7 +141,8 @@ node --test          # 零依赖；验收表就是断言
 
 ## 状态
 
-**未发布。** 哪些行为已经实测验收、哪些还没有，见 [`docs/acceptance.md`](docs/acceptance.md)。
+**尚未发布到 npm**，从 GitHub 装上就能用（见上面的安装一节）；版本 `0.1.0`。
+哪些行为已经实测验收、哪些还没有，见 [`docs/acceptance.md`](docs/acceptance.md)。
 
 ## 许可与出处
 

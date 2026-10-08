@@ -156,8 +156,9 @@ not work is recorded in
 
 ## Status
 
-**Unreleased.** [`docs/acceptance.md`](docs/acceptance.md) records what has been verified against
-a live Host, how, and what has not.
+**Not published to npm** — install it from GitHub as above. Version `0.1.0`.
+[`docs/acceptance.md`](docs/acceptance.md) records what has been verified against a live Host,
+how, and what has not.
 
 ## Licence and provenance
 
