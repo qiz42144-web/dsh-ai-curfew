@@ -33,14 +33,11 @@ export const inject = [];
 const pad2 = (value) => String(value).padStart(2, '0');
 
 /**
- * Where the tired-persona section sits in the system prompt.
- *
- * The deployment persona suffix is 10200, so this lands immediately after the
- * persona and well past every tool instruction — late enough to be the freshest
- * behavioural note in the prompt, and no shipped section claims the slot.
+ * The name of the prompt section this plugin appends during the curfew. It is
+ * appended to the assembled sections, so it lands after every shipped section
+ * and reads as the freshest behavioural note in the prompt.
  */
 const SECTION_NAME = 'ai-curfew:curfew';
-const SECTION_ORDER = 10250;
 
 /**
  * In-memory overrides owned by `/curfew`. They layer over the configuration file
@@ -116,6 +113,21 @@ export function journalPath() {
 /** Where the running host half stamps itself, so `/curfew status` can name the loaded build. */
 export function loadedPath() {
   return join(dshHome(), 'dsh-ai-curfew', 'loaded.json');
+}
+
+/** Where the prompt-injection path reports itself, so `/curfew status` can prove it reached a prompt. */
+export function promptProbePath() {
+  return join(dshHome(), 'dsh-ai-curfew', 'prompt-probe.json');
+}
+
+function promptProbe(entry) {
+  try {
+    const file = promptProbePath();
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, `${JSON.stringify({ at: new Date().toISOString(), ...entry }, null, 2)}\n`);
+  } catch {
+    /* a diagnostic must never break prompt assembly */
+  }
 }
 
 function markLoaded() {
@@ -367,23 +379,29 @@ export function apply(ctx) {
     }),
   );
 
-  // 3. The tired persona. An empty string is dropped by the assembler, so the
-  // section costs nothing outside the curfew.
-  const systemPrompt = ctx.get('systemPrompt');
-  if (systemPrompt === undefined) {
-    warn('[ai-curfew] systemPrompt service is unavailable; the tired persona is disabled');
-  } else {
-    ctx.effect(() =>
-      systemPrompt.section({
-        name: SECTION_NAME,
-        order: SECTION_ORDER,
-        text: () => {
-          const config = currentConfig();
-          return personaFor(resolveDuty(resolveNow(config), config), config) ?? '';
-        },
-      }),
-    );
-  }
+  // 3. The tired persona.
+  //
+  // Injected through the `system-prompt/assemble` waterfall rather than
+  // `systemPrompt.section()`. Sections are merged per scope (`assemble()` calls
+  // `layers.merge(scope, …)`) and the service registers into the layer of its
+  // own context, which an agent's assembly does not necessarily include. The
+  // waterfall is the documented expert hook, and it is dispatched with a scope
+  // target, so it is reachable from the root exactly like the two hooks above.
+  //
+  // Outside the curfew the assembly is returned untouched, so this costs one
+  // predicate and no prompt tokens.
+  ctx.effect(() =>
+    events.on('system-prompt/assemble', async (assembly, _context, next) => {
+      const result = await next();
+      const config = currentConfig();
+      const text = personaFor(resolveDuty(resolveNow(config), config), config);
+      promptProbe({ hook: 'system-prompt/assemble', fired: true, text: text ?? '' });
+      if (text === null || text === '') return result;
+
+      const sections = Array.isArray(result?.sections) ? result.sections : [];
+      return { ...result, sections: [...sections, { name: SECTION_NAME, text }] };
+    }),
+  );
 
   // 4. No new work once the AI is off the clock — a turn that was already
   // running must not start another tool call across the boundary.

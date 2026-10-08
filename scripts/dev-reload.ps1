@@ -7,19 +7,16 @@
     source in place changes nothing until the process restarts: disabling and
     re-enabling a Loader entry re-runs `apply()` but does not re-import the module.
 
-    This script copies the package to a new revision directory and prints the
-    install spec to hand to Plugin Manager:
+    This script copies the package to a new revision directory and points the
+    profile's `dsh-ai-curfew` junction at it. The resolved realpath — and with it
+    the module URL — is then one no process has loaded, so a single disable/enable
+    toggle imports the new code. No DSH restart required.
 
-        <profile>/.ai-curfew-dev/<revision>/dsh-ai-curfew
+    Development only. It leaves the profile manifest alone; the dependency still
+    names the source directory and the junction is what redirects it. To undo:
 
-    Installing that path links it into the profile's node_modules and re-enables
-    the bundle, which imports a URL that has never been loaded before — so the
-    new code runs without restarting DSH. The directory must be named exactly
-    `dsh-ai-curfew`, because the installer derives the package name from it.
-
-    Development only. Switch back to the source tree at any time with:
-
-        dsh plugin --profile <profile> add link:<source>
+        cmd /c rmdir "<profile>/node_modules/dsh-ai-curfew"
+        dsh plugin --profile <profile> install
 
 .PARAMETER Profile
     Profile name under $DSH_HOME/profiles. Defaults to `desktop`.
@@ -44,7 +41,9 @@ $ErrorActionPreference = 'Stop'
 
 $dshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $HOME '.dsh' }
 $profileDir = Join-Path $dshHome "profiles/$Profile"
+$nodeModules = Join-Path $profileDir 'node_modules'
 $buildRoot = Join-Path $profileDir '.ai-curfew-dev'
+$link = Join-Path $nodeModules 'dsh-ai-curfew'
 
 if (-not (Test-Path $profileDir)) { throw "Profile not found: $profileDir" }
 if (-not (Test-Path (Join-Path $Source 'package.json'))) { throw "Not a package directory: $Source" }
@@ -53,6 +52,8 @@ if (-not (Test-Path (Join-Path $Source 'package.json'))) { throw "Not a package 
 # mangles the package's non-ASCII description into invalid JSON.
 $manifest = Get-Content (Join-Path $Source 'package.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $revision = Get-Date -Format 'yyyyMMdd-HHmmss'
+# The directory name has to stay `dsh-ai-curfew`: Plugin Manager derives the
+# package name from it when a path spec is installed.
 $target = Join-Path (Join-Path $buildRoot $revision) 'dsh-ai-curfew'
 
 # Copy exactly what the manifest would publish, so the running revision cannot
@@ -70,15 +71,21 @@ foreach ($pattern in $manifest.files) {
     }
 }
 
-# Prune older revisions, newest first.
+# `rmdir` removes the junction link itself; Remove-Item -Recurse could follow it
+# into the source tree on some PowerShell versions.
+if (Test-Path $link) { cmd /c rmdir "$link" | Out-Null }
+New-Item -ItemType Junction -Path $link -Target $target | Out-Null
+
+# Prune older revisions, but never the one just published.
+$current = Split-Path -Parent $target
 Get-ChildItem $buildRoot -Directory -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -ne $current } |
     Sort-Object Name -Descending |
     Select-Object -Skip $Keep |
     ForEach-Object { Remove-Item $_.FullName -Recurse -Force }
 
 Write-Output "revision : $revision"
 Write-Output "files    : $($published.Count) ($($published -join ', '))"
+Write-Output "junction : $link -> $target"
 Write-Output ''
-Write-Output 'Now install this spec through Plugin Manager (install_bundle):'
-Write-Output ''
-Write-Output "  link:$target"
+Write-Output 'Now toggle the plugin off and on to import this revision.'
