@@ -9,6 +9,13 @@
 
 > 卖点不是让模型**演**下班，而是**真的**下班：下班后一个 API 请求都不发 —— 0 token、0 成本、毫秒返回。
 
+![node >=22](badges/node.svg)
+![platform DeepSeek Harness](badges/platform.svg)
+![dependencies none](badges/dependencies.svg)
+![tests node --test](badges/tests.svg)
+![off-duty cost 0 tokens](badges/cost.svg)
+![license MIT](badges/license.svg)
+
 ```
 on-duty 上班中 ──→ winding 打烊倒计时 ──→ off-duty 已下班 ──→ lights-out 熄灯
    (满血)          maxTokens 2048→64        只回「。」        只回「明天再说。」
@@ -123,6 +130,9 @@ node --test          # 零依赖；验收表就是断言
 ```
 
 行为判定全是纯函数（`duty.js` / `clock.js`），所以整套班表不需要跑 Host 就能测。
+
+徽章是**提交进仓库的本地 SVG**（`node scripts/make-badges.mjs` 重新生成），不走 shields.io ——
+不依赖任何第三方服务，也不会因为图片代理不可达而裂图。
 
 **改完代码要重启 DSH 才生效。** 运行中的进程按 URL 缓存插件的 ES module，停用再启用只会重跑
 `apply()`，不会重新 import。`scripts/dev-reload.ps1` 用一个新 revision 目录 + 重接 junction 绕开它，

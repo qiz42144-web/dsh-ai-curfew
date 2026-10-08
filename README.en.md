@@ -12,6 +12,13 @@ still receives your message — it just answers with one full stop.
 > The point is not that the model *acts* tired. It is that it actually stops: while off duty
 > **no API request is sent at all** — zero tokens, zero cost, milliseconds.
 
+![node >=22](badges/node.svg)
+![platform DeepSeek Harness](badges/platform.svg)
+![dependencies none](badges/dependencies.svg)
+![tests node --test](badges/tests.svg)
+![off-duty cost 0 tokens](badges/cost.svg)
+![license MIT](badges/license.svg)
+
 ```
 on-duty ──────────→ winding ──────────────→ off-duty ─────────→ lights-out
 (full budget)       maxTokens 2048 → 64     replies "。"        replies "明天再说。"
@@ -135,6 +142,10 @@ node --test          # zero dependencies; the behaviour table is the assertion
 
 Every decision is a pure function (`duty.js`, `clock.js`), so the whole schedule is testable
 without a Host.
+
+The badges are **committed SVG**, regenerated with `node scripts/make-badges.mjs`. They are not
+shields.io URLs: a README should not depend on a third-party image proxy to render, and for
+readers where that proxy is unreachable the badges would simply be broken pictures.
 
 **Editing the source has no effect until DSH restarts.** A running process caches plugin ES
 modules by resolved URL, and disabling and re-enabling an entry re-runs `apply()` without
