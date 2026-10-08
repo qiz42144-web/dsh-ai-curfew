@@ -4,6 +4,15 @@
   "description": "AI 熄灯：让 AI 也下班。到点后回复越来越短，深夜把 max_tokens 从 2048 压到 64，凌晨三点只回一句「明天再说」；高峰时段不上班，已下班照样收消息但只回一个句号。零 token、零成本。",
   "type": "module",
   "license": "MIT",
+  "author": "骑猫过海的鱼 <331054475+qiz42144-web@users.noreply.github.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qiz42144-web/dsh-ai-curfew.git"
+  },
+  "homepage": "https://github.com/qiz42144-web/dsh-ai-curfew#readme",
+  "bugs": {
+    "url": "https://github.com/qiz42144-web/dsh-ai-curfew/issues"
+  },
   "main": "index.js",
   "keywords": [
     "dsh",
