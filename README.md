@@ -79,15 +79,18 @@ dsh plugin --profile <你的 profile> add link:/absolute/path/to/ai-curfew
 ### 命令行
 
 ```
-/curfew                    查看当前判定、预算与依据
-/curfew off 30m            请假 30 分钟（期间正常上班）
-/curfew on                 销假，并取消强制下班
-/curfew now                强制下班
+/curfew                    看班表：当前判定、预算与依据
+/curfew overtime 30m       强制加班 30 分钟（宵禁暂停，期间正常上班）
+/curfew off                立刻下班
+/curfew auto               恢复自动班表（加班 / 强制下班 / 时间机器 全部取消）
 /curfew debug 01:30        时间机器，随时试任何时段
 /curfew debug clear        回到真实时间
 ```
 
 命令不经过模型，所以下班状态下也能用 —— 这是「把自己关在门外」的逃生口。
+
+**为什么是「加班」不是「请假」**：请假的主语是 AI，是它在请求不上班；但 `/curfew overtime`
+实际发生的是**你命令它加班**。同理 `off` 只管「AI 下班」这一件事，不再兼职表示「宵禁关掉」。
 
 ### 关于 `safetyMaxTokens`
 

@@ -29,7 +29,9 @@ First working version. Behaviour, in the order it was verified against a running
 
 ### Control
 
-- `/curfew status | on | off <duration> | now | debug <time> | debug clear`.
+- `/curfew status | overtime <duration> | off | auto | debug <time> | debug clear`.
+  Suspending the curfew is **overtime**, not leave: the operator is ordering the AI to work, so
+  the vocabulary says so. `off` means only "the AI clocks off", and `auto` is a full reset.
 - `$DSH_HOME/dsh-ai-curfew/config.json` is re-read whenever it changes; `/curfew` overrides
   layer over it in memory only.
 - A sidebar capsule shows the current verdict, and a settings page draws the configured day as

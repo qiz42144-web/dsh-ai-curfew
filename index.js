@@ -41,10 +41,10 @@ const SECTION_NAME = 'ai-curfew:curfew';
 
 /**
  * In-memory overrides owned by `/curfew`. They layer over the configuration file
- * rather than editing it, so a temporary snooze never becomes a permanent one.
+ * rather than editing it, so a temporary shift never becomes a permanent one.
  */
 const overrides = {
-  snoozeUntilMs: 0,
+  overtimeUntilMs: 0,
   debugNow: null,
   forceOff: false,
 };
@@ -205,7 +205,7 @@ function clockText(minutes) {
 }
 
 /**
- * Parse a snooze duration: `45`, `30m`, `2h`, `90s`.
+ * Parse an overtime shift: `45`, `30m`, `2h`, `90s`.
  *
  * @param spec - the user's text.
  * @returns milliseconds, or `null` when unparseable.
@@ -218,8 +218,8 @@ export function parseDuration(spec) {
   return value * (unit === 's' ? 1000 : unit === 'h' ? 3600000 : 60000);
 }
 
-function snoozeLeftMs() {
-  return Math.max(0, overrides.snoozeUntilMs - Date.now());
+function overtimeLeftMs() {
+  return Math.max(0, overrides.overtimeUntilMs - Date.now());
 }
 
 /**
@@ -227,7 +227,7 @@ function snoozeLeftMs() {
  * overridden in memory.
  *
  * Both overrides are expressed through paths the rest of the plugin already
- * understands — a snooze is a temporary disable, and forcing the night is done
+ * understands — an overtime shift is a temporary disable, and forcing the night is done
  * by moving the clock past lights-out — so there is no second decision path to
  * keep in sync with the tested one.
  */
@@ -238,7 +238,7 @@ function layer(readConfig) {
     const lightsOut = timeOfDay(config.lightsOut) ?? 180;
     config = { ...config, debugNow: clockText(lightsOut + 10) };
   }
-  if (Date.now() < overrides.snoozeUntilMs) config = { ...config, enabled: false };
+  if (Date.now() < overrides.overtimeUntilMs) config = { ...config, enabled: false };
   return config;
 }
 
@@ -254,22 +254,27 @@ function statusText(readConfig) {
         ? '不发送请求'
         : '不干预';
 
-  // A snooze and `enabled: false` both arrive here as a disabled config, and in
+  // An overtime shift and `enabled: false` both arrive here as a disabled config, and in
   // both cases the schedule is no longer what will actually happen. Reporting
   // the verdict anyway would be a lie about the only thing this command is for.
   const acting = config.enabled !== false;
+  const overtimeMs = overtimeLeftMs();
+
+  const verdict = acting
+    ? duty.name
+    : overtimeMs > 0
+      ? `加班中（宵禁暂停，还剩 ${Math.ceil(overtimeMs / 60000)} 分钟）`
+      : '已停用（配置 enabled: false）';
 
   return [
     'AI 熄灯 · 当前班表',
-    acting
-      ? `  判定       ${duty.name}`
-      : `  判定       已停用${snoozeLeftMs() > 0 ? `（小睡中，还剩 ${Math.ceil(snoozeLeftMs() / 60000)} 分钟）` : '（配置 enabled: false）'}`,
+    `  判定       ${verdict}`,
     `  依据       ${duty.reason}`,
-    acting ? `  预算       ${budget}` : `  若不停用   ${duty.name} · ${budget}`,
+    acting ? `  预算       ${budget}` : `  班表本应   ${duty.name} · ${budget}`,
     duty.reply === null ? null : `  回法       ${JSON.stringify(duty.reply)}`,
     `  峰值闸门   ${config.peakShift === false ? '关' : '开'}`,
     `  时间来源   ${overrides.debugNow !== null ? `运行时 ${overrides.debugNow}` : stored.debugNow ? `配置 ${stored.debugNow}` : '真实时间'}`,
-    overrides.forceOff ? '  覆盖       强制下班（/curfew on 取消）' : null,
+    overrides.forceOff ? '  覆盖       强制下班（/curfew auto 取消）' : null,
     `  配置文件   ${configPath()}`,
   ]
     .filter((line) => line !== null)
@@ -310,7 +315,7 @@ function statePayload(readConfig) {
   const config = layer(() => stored);
   const now = resolveNow(config);
   const duty = resolveDuty(now, config);
-  // A snooze and `enabled: false` both arrive here as a disabled config. The
+  // An overtime shift and `enabled: false` both arrive here as a disabled config. The
   // capsule must show what will actually happen, not what the schedule would
   // have said, so `state` is the effective one and `scheduleState` keeps the
   // schedule's own verdict for the settings page.
@@ -326,7 +331,7 @@ function statePayload(readConfig) {
     peak: duty.peak,
     reason: duty.reason,
     debug: now.debug,
-    snoozeMs: snoozeLeftMs(),
+    overtimeMs: overtimeLeftMs(),
     forced: overrides.forceOff,
     schedule: {
       wakeUp: config.wakeUp,
@@ -352,7 +357,7 @@ export function curfewCommand(readConfig) {
   return {
     name: 'curfew',
     description: '查看或临时调整 AI 熄灯班表',
-    input: { hint: '[status | on | off <时长> | now | debug <HH:MM> | debug clear]' },
+    input: { hint: '[status | overtime <时长> | off | auto | debug <HH:MM> | debug clear]' },
     handler: (invocation) => {
       const raw = String(invocation?.rawInput ?? '').trim();
       const [verb = 'status', ...rest] = raw.split(/\s+/).filter(Boolean);
@@ -361,22 +366,26 @@ export function curfewCommand(readConfig) {
         case 'status':
           return ok(statusText(readConfig));
 
-        case 'on':
-          overrides.snoozeUntilMs = 0;
+        case 'auto':
+          overrides.overtimeUntilMs = 0;
           overrides.forceOff = false;
-          return ok(`已恢复出勤。\n\n${statusText(readConfig)}`);
+          overrides.debugNow = null;
+          return ok(`已恢复自动班表，手动覆盖全部取消。\n\n${statusText(readConfig)}`);
 
-        case 'now':
+        case 'off':
+          if (rest.length > 0) {
+            return err('`off` 不接参数。要让它加班，用 /curfew overtime 30m。');
+          }
           overrides.forceOff = true;
-          overrides.snoozeUntilMs = 0;
-          return ok(`已强制下班，回复会变成 ${JSON.stringify(readConfig().lightsOutReply)}。用 /curfew on 取消。`);
+          overrides.overtimeUntilMs = 0;
+          return ok(`已强制下班，回复会变成 ${JSON.stringify(readConfig().lightsOutReply)}。用 /curfew auto 恢复班表。`);
 
-        case 'off': {
+        case 'overtime': {
           const ms = parseDuration(rest[0] ?? '30m');
-          if (ms === null || ms <= 0) return err('时长写法不对，例如 /curfew off 30m、/curfew off 2h。');
+          if (ms === null || ms <= 0) return err('时长写法不对，例如 /curfew overtime 30m、/curfew overtime 2h。');
           overrides.forceOff = false;
-          overrides.snoozeUntilMs = Date.now() + ms;
-          return ok(`已请假 ${Math.round(ms / 60000)} 分钟，期间正常上班。用 /curfew on 提前销假。`);
+          overrides.overtimeUntilMs = Date.now() + ms;
+          return ok(`已强制加班 ${Math.round(ms / 60000)} 分钟，期间正常上班。用 /curfew auto 让它收工。`);
         }
 
         case 'debug': {
@@ -395,7 +404,7 @@ export function curfewCommand(readConfig) {
         }
 
         default:
-          return err(`未知子命令「${verb}」。可用：status / on / off <时长> / now / debug <HH:MM> / debug clear。`);
+          return err(`未知子命令「${verb}」。可用：status / overtime <时长> / off / auto / debug <HH:MM> / debug clear。`);
       }
     },
   };

@@ -107,7 +107,7 @@ test('the shipped persona texts cover the whole window', () => {
 
 // --- /curfew duration parsing ----------------------------------------------
 
-test('snooze durations accept bare minutes and unit suffixes', () => {
+test('overtime durations accept bare minutes and unit suffixes', () => {
   const minute = 60000;
   assert.equal(parseDuration('30'), 30 * minute);
   assert.equal(parseDuration('30m'), 30 * minute);

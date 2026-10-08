@@ -141,15 +141,22 @@ function texts(element, found = []) {
   return found;
 }
 
-test('the settings page says so when the plugin is not acting', () => {
-  mockState = { enabled: false, state: 'on-duty', scheduleState: 'winding', schedule };
-  const rendered = texts(componentFor('settings.section')()).join(' | ');
+test('the settings page distinguishes overtime from being switched off', () => {
+  mockState = { enabled: false, state: 'on-duty', scheduleState: 'off-duty', overtimeMs: 25 * 60000, schedule };
+  const overtime = texts(componentFor('settings.section')()).join(' | ');
+  assert.match(overtime, /🟢 上班中/, 'the effective verdict is what is shown');
+  assert.match(overtime, /加班中（宵禁暂停，还剩约 25 分钟）/, 'overtime is named as the shift it is');
+  assert.match(overtime, /按班表本应是已下班/, 'and the schedule is kept as context');
 
-  assert.match(rendered, /🟢 上班中/, 'the effective verdict is what is shown');
-  assert.match(rendered, /已停用；按班表本应是打烊中/, 'and the schedule is kept as context');
+  mockState = { enabled: false, state: 'on-duty', scheduleState: 'winding', overtimeMs: 0, schedule };
+  const disabled = texts(componentFor('settings.section')()).join(' | ');
+  assert.match(disabled, /插件已停用；按班表本应是打烊中/);
+  assert.doesNotMatch(disabled, /加班中/, 'a plugin switched off is not on overtime');
 
   mockState = { enabled: true, state: 'winding', scheduleState: 'winding', schedule };
-  assert.doesNotMatch(texts(componentFor('settings.section')()).join(' | '), /已停用/);
+  const acting = texts(componentFor('settings.section')()).join(' | ');
+  assert.doesNotMatch(acting, /已停用/);
+  assert.doesNotMatch(acting, /加班中/);
 });
 
 test('the capsule is registered beside Settings', () => {

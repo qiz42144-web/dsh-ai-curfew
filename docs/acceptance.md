@@ -109,13 +109,15 @@ shapes, not that the shell renders them.
 **How.** `test/command.test.mjs` drives the handler directly — it is a pure function of the
 configuration, the file overlay, and whatever the previous command left in memory. Each branch
 is asserted: `status` reports the verdict, the budget and the config path; a bare invocation
-equals `status`; `now` forces lights-out and `on` hands the day back; `off` snoozes with a
-default and rejects a malformed or zero duration; `debug` moves the clock, survives a full
-timestamp, and refuses what it cannot parse; an unknown verb lists what is available.
+equals `status`; `off` forces lights-out and refuses a duration, pointing at `overtime` instead;
+`overtime` takes a shift length with a default and rejects a malformed or zero one; `auto` drops
+every override including the time machine; `debug` moves the clock, survives a full timestamp,
+and refuses what it cannot parse; an unknown verb lists what is available, and the two retired
+spellings (`on`, `now`) do not resolve.
 
-The test suite is also what caught the status text reporting `winding · 560 tokens` while a
-snooze was in force — the schedule's verdict, not the effective one. Both the command and the
-capsule now report what will actually happen and keep the schedule as context.
+The test suite is also what caught the status text reporting `winding · 560 tokens` while an
+overtime shift was in force — the schedule's verdict, not the effective one. Both the command
+and the capsule now report what will actually happen and keep the schedule as context.
 
 What this does not cover is DSH's own plumbing from the composer to the handler.
 
@@ -123,7 +125,7 @@ What this does not cover is DSH's own plumbing from the composer to the handler.
 
 | Item | Why it is outstanding | How to check |
 |---|---|---|
-| Typing `/curfew` reaches the handler | The subcommands are tested directly, but the composer-to-handler path is DSH's, and an agent cannot issue a slash command | Type `/curfew`, then `/curfew debug 01:30`, then `/curfew on` |
+| Typing `/curfew` reaches the handler | The subcommands are tested directly, but the composer-to-handler path is DSH's, and an agent cannot issue a slash command | Type `/curfew`, then `/curfew debug 01:30`, then `/curfew auto` |
 | The settings page as rendered pixels | The capsule is confirmed rendering (above) and the page is confirmed registered, but nobody has looked at the band itself | Open Settings and find the "AI 熄灯" page |
 | The capsule changing state on its own | It polls once a minute, so a boundary crossing should flip it unattended — not yet watched across one | Watch the capsule at 14:00 on a weekday, or open the page at 23:00 |
 

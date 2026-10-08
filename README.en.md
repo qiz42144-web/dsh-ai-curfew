@@ -85,16 +85,20 @@ changes** — no restart. Write only the keys you want to change:
 ### Commands
 
 ```
-/curfew                    current verdict, budget and reasoning
-/curfew off 30m            take 30 minutes off from the curfew
-/curfew on                 cancel the snooze and any forced night
-/curfew now                force the night immediately
+/curfew                    the roster: current verdict, budget and reasoning
+/curfew overtime 30m       order 30 minutes of overtime (curfew suspended)
+/curfew off                clock off right now
+/curfew auto               back to the automatic roster (drops every override)
 /curfew debug 01:30        move the clock, to try any hour
 /curfew debug clear        back to the real time
 ```
 
 Commands never reach the model, which is what makes this the way out when the AI has already
 locked itself out. (Command output is in Chinese.)
+
+**Why "overtime" and not "leave".** "Leave" makes the AI the subject — as if it were asking for
+time off. What `/curfew overtime` actually does is *you ordering it to work*. In the same
+spirit, `off` now means one thing only: the AI clocks off.
 
 ### About `safetyMaxTokens`
 
