@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.1.0 — unreleased
+## 0.1.0 — 2026-10-08
 
-First working version. Behaviour, in the order it was verified against a running Host.
+First public version. Behaviour, in the order it was verified against a running Host.
 
 ### Off-duty replies
 

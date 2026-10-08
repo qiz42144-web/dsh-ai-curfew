@@ -1,6 +1,7 @@
 {
   "name": "dsh-ai-curfew",
   "version": "0.1.0",
+  "private": true,
   "description": "AI 熄灯：让 AI 也下班。到点后回复越来越短，深夜把 max_tokens 从 2048 压到 64，凌晨三点只回一句「明天再说」；高峰时段不上班，已下班照样收消息但只回一个句号。零 token、零成本。",
   "type": "module",
   "license": "MIT",
