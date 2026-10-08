@@ -353,6 +353,9 @@ function statePayload(readConfig) {
     peak: duty.peak,
     reason: duty.reason,
     debug: now.debug,
+    // Local minutes past midnight, so the settings page can place a cursor on the
+    // band instead of guessing from the reason string.
+    nowMinutes: now.minutes,
     overtimeMs: overtimeLeftMs(),
     forced: overrides.forceOff,
     schedule: {

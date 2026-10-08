@@ -197,6 +197,23 @@ The client half was hardened for the same reason — a poll that comes back empt
 retries in seconds instead of waiting the full polling interval, so a boot race heals on its own
 rather than depending on the user to toggle something.
 
+**An optional style seat is not permission to skip styling.** The client half asked the runner
+for a stylesheet seat and quietly did without when there wasn't one:
+
+```js
+if (typeof styles?.insert === 'function') ctx.effect(() => styles.insert(SHEET))
+```
+
+`styles.insert` is genuinely optional, so that guard looked defensive. What it actually did was
+downgrade "no theming" into "no styles at all": the settings page rendered as a raw HTML column
+— axis labels run together on one line, legend swatches collapsed to nothing — and nothing
+reported a problem, because from the plugin's point of view there wasn't one.
+
+Two changes came out of it. The sheet now falls back to a package-owned `<style>` element when
+the runner offers no seat, which is what the reference plugin does. And the layout the page
+cannot function without — the band's flex row, the legend swatches, the command grid — is
+inline, so losing the stylesheet costs polish rather than the whole design.
+
 ## Developing against a running Host
 
 A running DSH process caches plugin ES modules **by resolved URL**, and disabling and

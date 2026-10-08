@@ -39,13 +39,12 @@ await import('../client.js');
 assert.notEqual(definition, null, 'the bundle must register itself with the module loader');
 assert.equal(definition.id, 'dsh-ai-curfew');
 
-const client = definition.factory(
-  (name) => {
-    if (name === 'react') return React;
-    throw new Error(`the client half may only require react, got ${name}`);
-  },
-  { insert: () => noop },
-);
+function requireStub(name) {
+  if (name === 'react') return React;
+  throw new Error(`the client half may only require react, got ${name}`);
+}
+
+const client = definition.factory(requireStub, { insert: () => noop });
 
 const registrations = [];
 client.apply({
@@ -225,4 +224,45 @@ test('a poll that lands settles into the once-a-minute cadence', async () => {
     response: { ok: true, json: () => Promise.resolve({ state: 'on-duty', schedule }) },
   });
   assert.deepEqual(settled, [60000]);
+});
+
+// --- the stylesheet ---------------------------------------------------------
+
+test('the stylesheet falls back to a style element when the runner offers no seat', () => {
+  // `styles.insert` is not guaranteed, and treating its absence as "no styles
+  // needed" renders the whole page as an unstyled column. The fallback is what
+  // makes the page look like a page.
+  const appended = [];
+  globalThis.document = {
+    getElementById: () => null,
+    createElement: () => ({ id: '', textContent: '', remove() {} }),
+    head: { append: (tag) => appended.push(tag) },
+  };
+
+  try {
+    const withoutSeat = definition.factory(requireStub, undefined);
+    withoutSeat.apply({
+      effect: (callback) => { callback(); },
+      slots: { inject: () => {}, register: (options, Component) => ({ options, Component }) },
+    });
+  } finally {
+    delete globalThis.document;
+  }
+
+  assert.equal(appended.length, 1, 'exactly one style element');
+  assert.equal(appended[0].id, 'dsh-ai-curfew-style');
+  assert.match(appended[0].textContent, /\.ai-curfew-capsule/);
+  assert.match(appended[0].textContent, /\.ai-curfew-page/);
+});
+
+// --- the command reference --------------------------------------------------
+
+test('the page lists every command, including the ones that are easy to forget', () => {
+  mockState = { enabled: true, state: 'on-duty', scheduleState: 'on-duty', schedule };
+  const rendered = texts(componentFor('settings.section')()).join(' | ');
+
+  for (const line of ['/curfew', '/curfew overtime 30m', '/curfew off', '/curfew auto', '/curfew debug 01:30', '/curfew debug clear']) {
+    assert.ok(rendered.includes(line), `${line} must appear in the reference`);
+  }
+  assert.match(rendered, /命令不经过模型/, 'and the page says why the commands are the way out');
 });
