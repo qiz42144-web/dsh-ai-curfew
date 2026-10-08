@@ -50,10 +50,34 @@ That is band 0 of `tierTexts`, which is what a 23:00 verdict should select.
 
 ### The schedule itself
 
-**How.** `node --test` — 43 cases, no Host required. They cover the duty cycle, the curve
+**How.** `node --test` — 58 cases, no Host required. They cover the duty cycle, the curve
 landing exactly on every anchor, all three curve shapes, peak windows on weekdays, weekends,
 statutory holidays, the wrap past midnight, the lights-out boundary at 03:00 and wake-up at
 09:00, the time machine, session exemption, dry-run semantics, and duration parsing.
+
+### The peak gate on real traffic, on the real clock
+
+**How.** Left running unattended overnight and into a weekday morning — no `debugNow`, nobody
+watching. On 2026-10-08 at 10:48, inside the 09:00–12:00 peak window, a session belonging to a
+different workspace was short-circuited. Its own log shows the turn a user would have seen:
+
+```
+assistant/message  seq 33
+  content: [{ "type": "text", "text": "。" }]
+  usage:   { "inputTokens": 0, "outputTokens": 0, "totalTokens": 0 }
+  stream:  an array
+```
+
+All three of that session's replies from the morning carry zero output tokens. The plugin's
+journal recorded the matching decision — `action: short-circuit`, `state: off-duty`,
+`reason: "2026-10-08 10:48 · peak hours"` — so the verdict and the durable message agree.
+
+This also crosses the real 09:00 wake-up boundary on the way in, and the real 03:00 lights-out
+boundary on the way out, both without a time machine.
+
+**And it stands aside correctly the rest of the time.** Re-checked at 12:29, between the two
+peak windows: a fresh session's `request/header` recorded `maxTokens: 131072` with
+`adapterDefaults: { maxTokens: true }`, meaning the machine's own default was left untouched.
 
 ### The client half's surfaces are live
 
@@ -96,7 +120,9 @@ What this does not cover is DSH's own plumbing from the composer to the handler.
 |---|---|---|
 | Typing `/curfew` reaches the handler | The subcommands are tested directly, but the composer-to-handler path is DSH's, and an agent cannot issue a slash command | Type `/curfew`, then `/curfew debug 01:30`, then `/curfew on` |
 | The capsule and settings page as rendered pixels | Both are confirmed registered and active in the live page (the client slot tree lists `ai-curfew` in `sidebar.footer.action` at order 60 and in `settings.section` at order 40), but appearance needs eyes | Look at the sidebar foot, then open Settings |
-| Peak/valley gate against the real clock | Exercised through `debugNow` and, for lights-out, on the real clock — but not yet across a real 09:00 boundary | Leave it running into a weekday morning |
+
+Everything else has been observed on a live Host, including the peak gate acting on a real
+session's traffic unattended.
 
 ## Known limits
 
