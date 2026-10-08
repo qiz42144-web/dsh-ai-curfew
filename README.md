@@ -42,11 +42,24 @@ on-duty 上班中 ──→ winding 打烊倒计时 ──→ off-duty 已下班
 
 ## 安装
 
+profile 是 DSH 里一套隔离的插件与配置环境，一台机器可以有好几套（常见的有 `desktop`、`web`、
+`headless`）。把下面的 `desktop` 换成你实际在跑的那个。
+
+**从 GitHub 装**（装了固定版本，推荐）：
+
 ```sh
-dsh plugin --profile <你的 profile> add link:/absolute/path/to/ai-curfew
+dsh plugin --profile desktop add github:qiz42144-web/dsh-ai-curfew#v0.1.0
 ```
 
-装好后客户端半体会由 `/plugins` 提供（侧栏底部的状态胶囊），Host 半体即刻生效。
+末尾的 `#v0.1.0` 是 tag；去掉它就会跟着 `main` 的最新状态走。
+
+**从本地目录装**（改这个插件本身时用）：
+
+```sh
+dsh plugin --profile desktop add link:/绝对路径/ai-curfew
+```
+
+装好后客户端半体由 `/plugins` 提供（侧栏底部的状态胶囊 + Settings 里的班表页），Host 半体即刻生效。
 
 ## 配置
 

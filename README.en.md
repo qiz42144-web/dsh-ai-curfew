@@ -47,12 +47,26 @@ Gate A can be switched off on its own, leaving a pure curfew plugin.
 
 ## Install
 
+A profile is DSH's isolated plugin-and-configuration environment; one machine can hold several
+(`desktop`, `web` and `headless` are the usual ones). Replace `desktop` below with the one you
+actually run.
+
+**From GitHub** — a pinned version:
+
 ```sh
-dsh plugin --profile <your profile> add link:/absolute/path/to/ai-curfew
+dsh plugin --profile desktop add github:qiz42144-web/dsh-ai-curfew#v0.1.0
 ```
 
-The Host half takes effect immediately; the client half (a status capsule at the sidebar foot
-and a schedule page in Settings) is served from `/plugins`.
+The `#v0.1.0` is the tag; drop it to follow `main` instead.
+
+**From a local checkout** — for working on the plugin itself:
+
+```sh
+dsh plugin --profile desktop add link:/absolute/path/to/ai-curfew
+```
+
+The Host half takes effect immediately; the client half — the status capsule at the sidebar foot
+and the schedule page in Settings — is served from `/plugins`.
 
 ## Configuration
 
