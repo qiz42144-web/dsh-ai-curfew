@@ -119,18 +119,27 @@ The test suite is also what caught the status text reporting `winding · 560 tok
 overtime shift was in force — the schedule's verdict, not the effective one. Both the command
 and the capsule now report what will actually happen and keep the schedule as context.
 
-What this does not cover is DSH's own plumbing from the composer to the handler.
+### Typing `/curfew` reaches the handler
+
+**How.** Observed in the running shell on a weekday afternoon, inside the real 14:00–18:00 peak
+window. `/curfew` rendered the status block — `off-duty`, `2026-10-08 14:10 · peak hours`,
+`不发送请求`, `回法 "。"`, `时间来源 真实时间` — and `/curfew overtime 4h` answered
+`已强制加班 240 分钟`, after which the next message in that session took a real model call
+instead of being short-circuited.
+
+That closes the composer-to-handler path, the one link the direct command tests cannot reach.
 
 ## Not yet verified
 
 | Item | Why it is outstanding | How to check |
 |---|---|---|
-| Typing `/curfew` reaches the handler | The subcommands are tested directly, but the composer-to-handler path is DSH's, and an agent cannot issue a slash command | Type `/curfew`, then `/curfew debug 01:30`, then `/curfew auto` |
-| The settings page as rendered pixels | The capsule is confirmed rendering (above) and the page is confirmed registered, but nobody has looked at the band itself | Open Settings and find the "AI 熄灯" page |
-| The capsule changing state on its own | It polls once a minute, so a boundary crossing should flip it unattended — not yet watched across one | Watch the capsule at 14:00 on a weekday, or open the page at 23:00 |
+| The settings page as rendered pixels | The capsule is confirmed rendering (above) and the page is confirmed registered, but the rebuilt page has not been looked at | Open Settings and find the "AI 熄灯" page |
+| The capsule changing state on its own | It polls once a minute, so a boundary crossing should flip it unattended — not yet watched across one | Watch the capsule at 18:00, or open the page at 23:00 |
 
-Everything else has been observed on a live Host, including the peak gate acting on a real
-session's traffic unattended.
+Everything else has been observed on a live Host: the peak gate acting on a real session's
+traffic unattended, the budget clamp measured against a control session, the persona reaching a
+logged system prompt, the tool gate refusing a call, and every command branch both in tests and
+from the composer.
 
 ## Known limits
 
