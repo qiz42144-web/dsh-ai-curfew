@@ -39,6 +39,11 @@ First working version. Behaviour, in the order it was verified against a running
 
 ### Notes
 
+- The status route and `/curfew` are registered through `ctx.inject`, and the trust fence is
+  resolved per request. A service captured once during `apply()` is only correct if it is
+  already installed and never replaced: on a cold start the route was silently absent and the
+  capsule sat on its fallback text until the plugin was toggled. The client also retries a
+  failed poll within seconds, so a boot race heals on its own.
 - `safetyMaxTokens` defaults to `null`. A 16-token cap on a reasoning model is spent entirely
   on reasoning, so the provider returns neither text nor a tool call and fails the turn with
   `OUTPUT_TOKEN_LIMIT`; the stream gate is the mechanism, and a second cap only adds a

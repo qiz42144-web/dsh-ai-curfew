@@ -166,6 +166,37 @@ the model's reasoning budget rather than for the expected reply.
 without consequence. `clampMaxTokens` returns `null` outright when `dryRun` is set, so a dry
 run reports a verdict without changing what the machine would send.
 
+**A service captured once during `apply()` may not be the one that serves.** The status route
+was originally registered against `ctx.get('webServer')`, resolved at apply time. On a cold
+start the capsule then sat on its fallback text forever, while toggling the plugin fixed it —
+because a toggle re-applies against the live service.
+
+The tell was in the timestamps rather than the code. The plugin's own load marker showed an
+`apply()` at 12:26 in a process that had started at 10:45, meaning the working capsule had been
+a **re-apply**, not a boot. The rule that fell out of it:
+
+> A service looked up once with `ctx.get()` during `apply()` is only correct if it is already
+> installed *and never replaced*. Where that is not guaranteed, the registration has to be
+> reactive.
+
+So the route and the command now go through Cordis's own dependency injection, and the trust
+fence is resolved per request:
+
+```js
+ctx.inject(['webServer'], (scope) => {
+  scope.effect(() => scope.webServer.register({ kind: 'exact', path: STATUS_ROUTE, handler }))
+})
+```
+
+`ctx.inject` runs the callback once the dependency is available and re-runs it if the service is
+replaced, which covers both halves of the problem. Declaring `inject: ['webServer']` on the
+plugin itself would not do: a missing service would hold the whole fiber in a pending state and
+take the gates down with it, which is the opposite of what an optional UI route should cost.
+
+The client half was hardened for the same reason — a poll that comes back empty or throws now
+retries in seconds instead of waiting the full polling interval, so a boot race heals on its own
+rather than depending on the user to toggle something.
+
 ## Developing against a running Host
 
 A running DSH process caches plugin ES modules **by resolved URL**, and disabling and

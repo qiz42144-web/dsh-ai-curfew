@@ -1,10 +1,10 @@
 /**
- * The client half's schedule band.
+ * The client half: its schedule band, its capsule, and its polling loop.
  *
  * `client.js` is served as a single self-contained bundle, so it cannot import a
  * shared module and its internals are not exported. It is loaded here through a
- * stub module loader with a minimal React, which is enough to call the settings
- * component and inspect the element tree it returns.
+ * stub module loader with a minimal React, which is enough to call the
+ * registered components and inspect the element tree they return.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,11 +13,26 @@ let definition = null;
 globalThis.window = { __ModuleLoader__: { load: (registered) => { definition = registered; } } };
 
 let mockState = null;
+// Effects are opt-in: the render tests do not want a polling loop running, and
+// the polling test wants nothing else.
+let runEffects = false;
 const noop = () => {};
 const React = {
   createElement: (type, props, ...children) => ({ type, props: props ?? {}, children }),
   useState: () => [mockState, noop],
-  useEffect: noop,
+  useEffect: (callback) => {
+    if (runEffects) callback();
+  },
+};
+
+// Timers and fetch are captured rather than executed, so the loop's scheduling
+// can be asserted without waiting three seconds.
+const scheduled = [];
+const realSetTimeout = globalThis.setTimeout;
+const realFetch = globalThis.fetch;
+globalThis.setTimeout = (callback, delay) => {
+  scheduled.push(delay);
+  return 0;
 };
 
 await import('../client.js');
@@ -45,6 +60,23 @@ function componentFor(slot) {
   const entry = registrations.find((candidate) => candidate.slot === slot);
   assert.notEqual(entry, undefined, `${slot} must be injected`);
   return entry.render().Component;
+}
+
+/** Let the promise chain inside one poll settle. */
+const flush = () => new Promise((resolve) => realSetTimeout(resolve, 0));
+
+async function pollOnce({ response }) {
+  scheduled.length = 0;
+  globalThis.fetch = () => Promise.resolve(response);
+  runEffects = true;
+  try {
+    componentFor('sidebar.footer.action')({ wide: true });
+    await flush();
+  } finally {
+    runEffects = false;
+    globalThis.fetch = realFetch;
+  }
+  return scheduled.slice();
 }
 
 const schedule = {
@@ -172,4 +204,25 @@ test('the capsule is registered beside Settings', () => {
   mockState = null;
   assert.equal(Capsule({ wide: true }).children[0].children[0], 'AI 熄灯');
   assert.equal(Capsule({ wide: false }).children[0].children[0], '⚪');
+});
+
+// --- the polling loop -------------------------------------------------------
+
+test('a poll that comes back empty retries in seconds, not a minute', async () => {
+  // The regression a cold boot exposed: the Host route was not serving yet, so
+  // the first poll failed and the capsule sat on its fallback text until the
+  // plugin was toggled and the component remounted. A failed poll has to come
+  // back quickly so a cold start heals on its own.
+  const rejected = await pollOnce({ response: { ok: false } });
+  assert.deepEqual(rejected, [3000]);
+
+  const threw = await pollOnce({ response: null });
+  assert.deepEqual(threw, [3000], 'a thrown fetch must be retried the same way');
+});
+
+test('a poll that lands settles into the once-a-minute cadence', async () => {
+  const settled = await pollOnce({
+    response: { ok: true, json: () => Promise.resolve({ state: 'on-duty', schedule }) },
+  });
+  assert.deepEqual(settled, [60000]);
 });

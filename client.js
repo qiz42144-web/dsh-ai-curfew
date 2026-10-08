@@ -22,6 +22,7 @@ window.__ModuleLoader__.load({
 
     const STATE_URL = '/ai-curfew/state.json';
     const POLL_MS = 60000;
+    const RETRY_MS = 3000;
     const BLOCKS = 96; // one per quarter hour
 
     const FACE = {
@@ -82,23 +83,39 @@ window.__ModuleLoader__.load({
 
       React.useEffect(() => {
         let live = true;
-        const read = () => {
+        let timer = null;
+
+        function schedule(delay) {
+          if (!live) return;
+          timer = setTimeout(read, delay);
+        }
+
+        function read() {
           Promise.resolve()
             .then(() => fetch(STATE_URL, { cache: 'no-store' }))
             .then((response) => (response && response.ok ? response.json() : null))
             .then((next) => {
-              if (live && next !== null && typeof next === 'object') setState(next);
+              if (!live) return;
+              if (next === null || typeof next !== 'object') {
+                // The Host may still be wiring its routes, or the fence may not
+                // have admitted this page yet. Come back soon rather than in a
+                // minute, so a cold start heals on its own instead of sitting on
+                // the fallback until something remounts the component.
+                schedule(RETRY_MS);
+                return;
+              }
+              setState(next);
+              schedule(POLL_MS);
             })
             .catch(() => {
-              /* keep the last reading: a Host that stopped answering is not worth a red badge */
+              if (live) schedule(RETRY_MS);
             });
-        };
+        }
 
         read();
-        const timer = setInterval(read, POLL_MS);
         return () => {
           live = false;
-          clearInterval(timer);
+          if (timer !== null) clearTimeout(timer);
         };
       }, []);
 

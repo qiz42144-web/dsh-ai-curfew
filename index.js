@@ -140,6 +140,28 @@ export function loadedPath() {
   return join(dshHome(), 'dsh-ai-curfew', 'loaded.json');
 }
 
+/**
+ * Where the status route reports whether it was ever served.
+ *
+ * The route is registered through `ctx.inject`, so a missing service means the
+ * callback never runs and nothing is logged anywhere a user can read. This file
+ * is how a cold start answers "did the capsule's data source come up?" without
+ * a debugger: no file, or one stamped with an older pid, means it did not.
+ */
+export function routePath() {
+  return join(dshHome(), 'dsh-ai-curfew', 'route.json');
+}
+
+function markRoute(entry) {
+  try {
+    const file = routePath();
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, `${JSON.stringify({ at: new Date().toISOString(), pid: process.pid, ...entry }, null, 2)}\n`);
+  } catch {
+    /* a diagnostic must never stop the route from registering */
+  }
+}
+
 /** Where the prompt-injection path reports itself, so `/curfew status` can prove it reached a prompt. */
 export function promptProbePath() {
   return join(dshHome(), 'dsh-ai-curfew', 'prompt-probe.json');
@@ -559,12 +581,12 @@ export function apply(ctx) {
   );
 
   // 5. The control surface.
-  const commands = ctx.get('commands');
-  if (commands === undefined) {
-    warn('[ai-curfew] commands service is unavailable; /curfew is not registered');
-  } else {
-    ctx.effect(() => commands.register(curfewCommand(readConfig)));
-  }
+  //
+  // Through `ctx.inject` rather than `ctx.get`: a service looked up once during
+  // apply is only correct if it is already installed and never replaced.
+  ctx.inject(['commands'], (scope) => {
+    scope.effect(() => scope.commands.register(curfewCommand(readConfig)));
+  });
 
   // 6. The client capsule's data source.
   //
@@ -572,17 +594,22 @@ export function apply(ctx) {
   // dynamic packages, so an installed bundle cannot rely on it. Every
   // self-registered route must ask the trust fence first — it is what rejects
   // DNS-rebinding and unauthenticated requests.
-  const webServer = ctx.get('webServer');
-  if (webServer === undefined) {
-    warn('[ai-curfew] webServer service is unavailable; the status route is not served');
-  } else {
-    const connection = ctx.get('connection');
-    ctx.effect(() =>
-      webServer.register({
+  //
+  // Injected, not captured. The web carrier is not guaranteed to be installed —
+  // or to stay the same instance — by the time this plugin applies, and a route
+  // registered against a captured instance is silently absent for the rest of
+  // the process. That is exactly what a cold start showed: the capsule sat on
+  // its fallback text until the plugin was toggled, because a toggle re-applied
+  // against the live service.
+  ctx.inject(['webServer'], (scope) => {
+    markRoute({ registered: true });
+    scope.effect(() =>
+      scope.webServer.register({
         kind: 'exact',
         path: STATUS_ROUTE,
         handler: (request, response) => {
-          const denial = trustDenial(connection, request);
+          // Resolved per request, so a replaced fence is picked up as well.
+          const denial = trustDenial(scope.get('connection'), request);
           if (denial !== 0) {
             try {
               response.statusCode = denial;
@@ -609,7 +636,7 @@ export function apply(ctx) {
         },
       }),
     );
-  }
+  });
 
   note('[ai-curfew] host half loaded');
 }
